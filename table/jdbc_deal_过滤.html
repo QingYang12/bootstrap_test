@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<script src="http://code.jquery.com/jquery-latest.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+	<script src="https://cdn.bootcss.com/bootstrap-table/1.15.4/bootstrap-table.js"></script>
+	<link href="https://cdn.bootcss.com/bootstrap-table/1.15.4/bootstrap-table.css" rel="stylesheet">
+	<link href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.css" rel="stylesheet">
+  </head>
+  <body>
+    
+	<div   id="parentDiv" style="border: 0px solid #A9C9E2;width:90%;height:100%;">
+	<form class="form-horizontal">
+		<fieldset>
+			<legend>数据过滤策略定义</legend>
+			<div class="control-group">
+				<div >
+					<label class="control-label" for="input02">过滤表达式设置:</label>
+					<div id="addone" style="display:none;position:absolute; left:85%;" onclick='addTableRow()'>
+						</br>
+						<span class="glyphicon glyphicon-plus" style="color:#1890FF">新增</span>
+					</div>
+				</div>
+				<!--策略表达式编辑表-->
+				<table id="datatab" class="table table-striped table-bordered table-hover"  data-show-columns="false"></table>
+				<!--策略表达式文本显示-->
+				<div class="card">
+				  <div class="card-header">
+					<label class="control-label" for="dataspan">公式预览:</label>
+				  </div>
+				  <div id="dataspan" class="card-body">
+				  </div>
+				</div>
+			</div>
+			<div class="control-group">
+				<label class="control-label" for="garbageDataProcessAction">垃圾处理动作:</label>
+				<div class="controls">
+					<select id="garbageDataProcessAction" class="form-control">
+					</select>
+				</div>
+			</div>
+			<div class="control-group">
+				<label class="control-label" for="input03">过滤策略描述:</label>
+				<div class="controls">
+					<textarea class="form-control" id="textarea" rows="3" ></textarea>
+				</div>
+			</div>
+		</fieldset>
+	</form>
+	</div>
+	
+  </body>
+  <script>
+/*1.初始化table*/
+		//声明全局变量
+		var extension={
+				strategyjsondata:[],
+				strategystr:"",
+				description:"",
+				garbageDataProcessAction:"",
+			};
+		var logicDict=[{name:"和",code:"and"},{name:"或",code:"or"}];   //逻辑运算符 下拉菜单数据
+		var fieldDict=[];   //原字段 下拉菜单数据
+		var strategyDict=[];//判定策略 下拉菜单数据
+		
+		var initObj={
+			   data:[],   //datalist 即为需要的数据
+			   toolbar:'#toolbar',
+			   dataType:'json',
+			   columns: [
+						   {
+								field: 'logic',
+								title: '逻辑运算符',
+								width: 120,
+								align: 'center',
+								valign: 'middle',
+								formatter:function (value, row, index) {
+									//logicDict  逻辑运算符字典
+									var dictlist=logicDict;
+									var data=value;
+									var id="logic_select_"+index;
+									var field='logic';
+									var result = "";
+									result+="<select class='form-control selectpicker' style='width:100%;display:inline;' id='"+id+"' name='logic_select' selected='"+data+"' onBlur='οnchange_value(\""+id+"\",\""+field+"\","+index+")'>";
+									//添加option
+									var opts = "<option value=''></option>";
+									for(var i=0;i<=dictlist.length-1;i++){
+										var selected="";
+										if(data==dictlist[i].code){//选中值
+											selected="selected='selected'";
+										}else{
+											selected="";
+										}
+										opts += "<option value='"+dictlist[i].code+"' "+selected+">"+dictlist[i].name+"</option>";
+									}
+									result+=opts+"</select>"
+									return result;
+								},
+							},
+							{
+								field: 'l_bracket',
+								title: '左括号',
+								width: 120,
+								align: 'center',
+								valign: 'middle',
+								formatter:function (value, row, index) {
+									var data = value;
+									var id="l_bracket_input_"+index;
+									var field='l_bracket';
+									var result = "";
+									result+="<input class='form-control' style='width:100%;display:inline;' id='"+id+"' name='l_bracket_input' value='"+data+"'  onBlur='οnchange_value(\""+id+"\",\""+field+"\","+index+")'/>";
+									return result;
+								},
+							},
+							{
+								field: 'field_regulation',
+								title: '原始字段 - 垃圾数据判定策略选择',
+								width: 500,
+								align: 'center',
+								valign: 'middle',
+								formatter: function (value, row, index) {
+									var dictlist1=fieldDict;//fieldDict  原始字段字典
+									var id1="field_select_"+index;
+									var num1=0;
+									var dictlist2=strategyDict;//strategyDict  策略字段字典
+									var id2="strategy_select_"+index;
+									var num2=1;
+									var field='field_regulation';
+									var data=value.split("-");
+									var result = "";
+									result+="<select class='form-control selectpicker' style='width:40%;display:inline;' id='"+id1+"' name='field_select' selected='"+data[0]+"'onBlur='οnchange_two_value(\""+id1+"\",\""+field+"\","+index+","+num1+")'>";
+									//添加option1
+									var opts1 = "<option value=''></option>";
+									for(var i=0;i<=dictlist1.length-1;i++){
+										var selected="";
+										if(data[0]==dictlist1[i].sjxbsf){//选中值
+											selected="selected='selected'";
+										}else{
+											selected="";
+										}
+										opts1 += "<option value='"+dictlist1[i].sjxbsf+"' "+selected+">"+dictlist1[i].sjxbsf+"</option>";
+									}
+									result+=opts1+"</select>";
+									result+="&nbsp;-&nbsp;";
+									result+="<select class='form-control selectpicker' style='width:40%;display:inline;'  id='"+id2+"' name='strategy_select' selected='"+data[1]+"'onBlur='οnchange_two_value(\""+id2+"\",\""+field+"\","+index+","+num2+")'>";
+									//添加option2
+									var opts2 = "<option value=''></option>";
+									for(var i=0;i<=dictlist2.length-1;i++){
+										var selected="";
+										if(data[1]==dictlist2[i].strategyName){//选中值
+											selected="selected='selected'";
+										}else{
+											selected="";
+										}
+										opts2 += "<option value='"+dictlist2[i].strategyName+"' "+selected+">"+dictlist2[i].strategyName+"</option>";
+									}
+									result+=opts2+"</select>";
+									return result;
+								},
+							},
+							{
+								field: 'r_bracket',
+								title: '右括号',
+								width: 120,
+								align: 'center',
+								valign: 'middle',
+								formatter:function (value, row, index) {
+									var data = value;
+									var id="r_bracket_input_"+index;
+									var field='r_bracket';
+									var result = "";
+									result+="<input class='form-control' style='width:100%;display:inline;' id='"+id+"' name='l_bracket_input' value='"+data+"'  onBlur='οnchange_value(\""+id+"\",\""+field+"\","+index+")'/>";
+									return result;
+								},
+							},
+							{
+								field: 'operation',
+								title: '操作',
+								width: 120,
+								align: 'center',
+								valign: 'middle',
+								formatter:function (value, row, index) {
+									var id = value;
+									var result = "";
+									result+="<span class='glyphicon glyphicon-plus' style='color:#1890FF' onclick='addTableRow()'></span>&nbsp;&nbsp;&nbsp;&nbsp;<span class='glyphicon glyphicon-minus' style='color:#1890FF' onclick='deleteTableRow("+index+")'></span>";
+									return result;
+								},
+							}
+						],
+				onDblClickCell: function(field, value, row, $element) {
+					/*$element.attr('contenteditable', true);
+					$element.blur(function() {
+						let index = $element.parent().data('index');
+						let tdValue = $element.html();
+
+						saveData(index, field, tdValue);
+					})*/
+				}
+			 }
+//////////////////////////////////////////////////////函数域/////////////////////////////////////////////////////////////////////////////		
+/*2.表单操作函数*/
+		//更新某一列
+		function saveData(index, field, value) {
+			$('#datatab').bootstrapTable('updateCell', {
+				index: index,       //行索引
+				field: field,       //列名
+				value: value        //cell值
+			})
+		}
+		//表格增加行 +
+		function addTableRow(){
+			console.log(fieldDict);
+			//var count = $('#datatab').bootstrapTable('getData').length;
+			var data = {'logic': '', 'l_bracket': '', 'field_regulation': '-', 'r_bracket': '', 'operation': ''};
+			if(extension.strategyjsondata==undefined){
+				extension.strategyjsondata=[];
+			}
+			extension.strategyjsondata.push(data);
+			initObj.data=extension.strategyjsondata;
+			$('#datatab').bootstrapTable('destroy');
+			$('#datatab').bootstrapTable(initObj);
+			addoneVisable();
+			viewStrategystr();
+		}
+		//表格删除行 -
+		function deleteTableRow(index){
+			extension.strategyjsondata.splice(index, 1);
+			initObj.data=extension.strategyjsondata;
+			$('#datatab').bootstrapTable('destroy');
+			$('#datatab').bootstrapTable(initObj);
+			addoneVisable();
+			viewStrategystr();
+		}
+		//初始化0新增按钮控制 
+		function addoneVisable(){
+			if(extension.strategyjsondata==undefined){
+				extension.strategyjsondata=[];
+			}
+			var jsondata=extension.strategyjsondata;
+			var count=jsondata.length;
+			if(count>0){
+				document.getElementById("addone").style.display="none";
+			}else{
+				document.getElementById("addone").style.display="inline";
+			}
+		}
+		//表格 input  select改变值
+		function οnchange_value(id,field,index){
+			var value=$('#'+id).val();
+			var jsonObj=extension.strategyjsondata[index];
+			for(var item in jsonObj){
+			   if(item==field){  //item 表示Json串中的属性，如'name'
+				   jsonObj[item]=value;//key所对应的value  赋值
+			    }
+		    }
+			viewStrategystr();
+		}
+		//表格 多  select改变值
+		function οnchange_two_value(id,field,index,num){
+			//num代表是该单元格第几个控件
+			var numValue=$('#'+id).val();//该id控件选中的值
+			var jsonObj=extension.strategyjsondata[index];
+			for(var item in jsonObj){
+			   if(item==field){  //item 表示Json串中的属性，如'name'
+				   var value=jsonObj[item];//key所对应的value  赋值
+				   var data=value.split("-");
+					data[num]=numValue;//该位置赋值
+					var newValue="";
+					for(var i=0;i<=data.length-1;i++){
+						if(i!=0){
+							newValue+="-";
+						}
+						newValue+=data[i];
+					}
+					jsonObj[item]=newValue;//该单元格赋值
+			    }
+		    }
+			viewStrategystr();
+		}
+		//赋值策略公式
+		function viewStrategystr(){//新增  删除  改变值函数末尾调用该函数更新 赋值策略公式字符串值；
+			var htmlvalue="";
+			for(var i=0;i<=extension.strategyjsondata.length-1;i++){
+				var jsonObj=extension.strategyjsondata[i];
+				for(var item in jsonObj){
+					htmlvalue+=jsonObj[item]+" ";
+				}
+			}
+			$('#dataspan').html(htmlvalue.trimRight());
+		}
+/*3.初始化字典函数*/
+		//初始化查字典表
+		//查询所有字典
+		function getDict(dataTarget){
+			getfieldDict(dataTarget);
+			getStrategyDict(dataTarget);
+			getgarbageDict();
+			getlogicDict();
+			
+		}
+		//原始字段
+		function getfieldDict(dataTarget){
+			var dataStr={
+							sjzybsf:dataTarget,
+							sfbsx: '0'
+						};
+			$.ajax({
+				url:"/api/consumer/ddefine/data-resource-dataitem/query",
+				type:"post",
+				async:false,//同步:false    异步:true
+				data:JSON.stringify(dataStr),
+				dataType:"json",
+				Accept: "application/json, text/plain,",
+				contentType: "application/json;charset-UTF-8",
+				success:function rep( res ){
+					//alert(JSON.stringify(data));
+					fieldDict=res.data;
+				}
+			
+			})
+		}
+		//策略字段
+		function getStrategyDict(dataTarget){
+			var dataStr={
+							dataResourceId:dataTarget
+						};
+			$.ajax({
+				url:"/api/consumer/dataorganization/strategy/query", //api/consumer/ddefine/data-check-strategy/query  ?
+				type:"post",
+				data:JSON.stringify(dataStr),
+				dataType:"json",
+				Accept: "application/json, text/plain,",
+				contentType: "application/json;charset-UTF-8",
+				success:function rep( res ){
+					strategyDict=res.data;
+				}
+			
+			})
+		}
+		//逻辑运算符
+		function getlogicDict(){
+			var dataStr={
+							dictCode:"CODE_SJZZEJFL",
+							parentCode: '01'
+						};
+			$.ajax({
+				url:"/api/platformConfig/dictItem/list",
+				type:"post",
+				data:JSON.stringify(dataStr),
+				dataType:"json",
+				Accept: "application/json, text/plain,",
+				contentType: "application/json;charset-UTF-8",
+				success:function rep( data ){
+					//alert(JSON.stringify(data));
+				}
+			
+			})
+		}
+		//垃圾处理动作
+		function getgarbageDict(){
+			var dataStr={
+							dictCode:"CODE_LJSJCLDZ"
+						};
+			$.ajax({
+				url:"/api/platformConfig/dictItem/list",
+				type:"post",
+				data:JSON.stringify(dataStr),
+				dataType:"json",
+				Accept: "application/json, text/plain,",
+				contentType: "application/json;charset-UTF-8",
+				success:function rep( data ){
+					var dictlist=data.data;
+					var opts = "<option value=''></option>";
+									for(var i=0;i<=dictlist.length-1;i++){
+										var selected="";
+										var value=extension.garbageDataProcessAction;
+										if(value!=undefined&&value==dictlist[i].code){//选中值
+											selected="selected='selected'";
+										}else{
+											selected="";
+										}
+										opts += "<option value='"+dictlist[i].code+"' "+selected+">"+dictlist[i].name+"</option>";
+									}
+					$("#garbageDataProcessAction").append(opts);
+				}
+			})
+		}
+/*4.外部调用   表单 初始化/提交 方法*/
+		//html初始化方法  html_init
+		addoneVisable();
+		initObj.data=extension.strategyjsondata;
+		$('#datatab').bootstrapTable(initObj);
+		function html_init(node,nodes,id,dataTarget){
+			getDict(dataTarget);//获得所有数据  字典  列表
+			if(node.extension!=undefined){
+				//1.extension赋全局声明
+				extension=node.extension;
+				//2.赋值 公式表格
+				if(extension.strategyjsondata!=undefined){
+					initObj.data=extension.strategyjsondata;//初始化表格	
+				}
+				//3.详情赋值
+				$('#textarea').val(extension.description);//详情赋值
+				$('#datatab').bootstrapTable('destroy').bootstrapTable(initObj);
+				//4.垃圾处理动作赋值				
+				$('#garbageDataProcessAction').val(extension.garbageDataProcessAction);
+				addoneVisable();//显示新增按钮
+				viewStrategystr();//显示公式
+			}
+		}
+		//htm提交方法   html_submit 
+		function html_submit(){
+			extension.strategystr=$('#dataspan').text();//提交公式
+			extension.garbageDataProcessAction=$('#garbageDataProcessAction').val();//提交垃圾处理动作
+			extension.description=$('#textarea').val();//提交详情
+			return extension;
+		}
+
+  </script>
+</html>
